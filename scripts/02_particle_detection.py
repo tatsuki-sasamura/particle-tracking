@@ -2,8 +2,6 @@
 """Particle detection parameter tuning script.
 
 Use this script to find optimal detection parameters for your data.
-Supports both threshold and trackpy detection methods.
-
 After tuning, update config.py with the optimal parameters.
 """
 
@@ -20,9 +18,7 @@ from particle_tracking import detect, load_nd2_file
 
 from config import (
     DATA_DIR,
-    METHOD,
-    THRESHOLD_PARAMS,
-    TRACKPY_PARAMS,
+    DETECT_PARAMS,
     get_output_dir,
 )
 
@@ -70,189 +66,83 @@ print(f"Saved: {OUT_DIR / 'frame.png'}")
 
 # %%
 # =============================================================================
-# Method Selection
+# Current Parameters
 # =============================================================================
 
 print(f"\n{'='*50}")
-print(f"Current method: {METHOD}")
+print("Current detection parameters:")
 print(f"{'='*50}")
-
-if METHOD == "threshold":
-    print("\nThreshold method parameters:")
-    print(f"  threshold_percentile: {THRESHOLD_PARAMS['threshold_percentile']}")
-    print(f"  min_area: {THRESHOLD_PARAMS['min_area']}")
-    print(f"  max_area: {THRESHOLD_PARAMS['max_area']}")
-else:
-    print("\nTrackpy method parameters:")
-    print(f"  diameter: {TRACKPY_PARAMS['diameter']}")
-    print(f"  minmass: {TRACKPY_PARAMS['minmass']}")
+print(f"  threshold_percentile: {DETECT_PARAMS['threshold_percentile']}")
+print(f"  min_area: {DETECT_PARAMS['min_area']}")
+print(f"  max_area: {DETECT_PARAMS['max_area']}")
 
 # %%
 # =============================================================================
-# Threshold Method: Parameter Sweep
+# Threshold Visualization
 # =============================================================================
 
-if METHOD == "threshold":
-    print("\n=== Threshold Method: Visualization ===")
+print("\n=== Threshold Visualization ===")
 
-    pct = THRESHOLD_PARAMS["threshold_percentile"]
-    threshold = np.percentile(frame, pct)
-    binary = frame > threshold
+pct = DETECT_PARAMS["threshold_percentile"]
+threshold = np.percentile(frame, pct)
+binary = frame > threshold
 
-    # Binary mask
-    fig, ax = plt.subplots(figsize=(16, 4))
-    ax.imshow(binary, cmap="gray")
-    ax.set_title(f"Binary mask (percentile={pct}, threshold={threshold:.1f})")
-    ax.axis("off")
-    plt.tight_layout()
-    plt.savefig(OUT_DIR / "threshold_binary.png", dpi=150)
-    plt.show()
-    print(f"Saved: {OUT_DIR / 'threshold_binary.png'}")
+# Binary mask
+fig, ax = plt.subplots(figsize=(16, 4))
+ax.imshow(binary, cmap="gray")
+ax.set_title(f"Binary mask (percentile={pct}, threshold={threshold:.1f})")
+ax.axis("off")
+plt.tight_layout()
+plt.savefig(OUT_DIR / "threshold_binary.png", dpi=150)
+plt.show()
+print(f"Saved: {OUT_DIR / 'threshold_binary.png'}")
 
-    # Detections
-    particles = detect(frame, method="threshold", **THRESHOLD_PARAMS)
-    fig, ax = plt.subplots(figsize=(16, 4))
-    ax.imshow(frame, cmap="gray", vmin=0, vmax=frame.max() * 0.3)
-    if len(particles) > 0:
-        ax.scatter(particles["x"], particles["y"],
-                   s=100, facecolors="none", edgecolors="lime", linewidths=1.5)
-    ax.set_title(f"Threshold detections (n={len(particles)})")
-    ax.axis("off")
-    plt.tight_layout()
-    plt.savefig(OUT_DIR / "threshold_detections.png", dpi=150)
-    plt.show()
-    print(f"Saved: {OUT_DIR / 'threshold_detections.png'}")
-
-    # Parameter sweep
-    print("\n=== Threshold Parameter Sweep ===")
-    print("Percentile | min_area | Detections")
-    print("-" * 40)
-
-    percentiles = [97, 98, 99, 99.5, 99.9]
-    min_areas = [10, 30, 50, 100, 200]
-
-    for pct in percentiles:
-        for ma in min_areas:
-            p = detect(frame, method="threshold",
-                       threshold_percentile=pct, min_area=ma,
-                       max_area=THRESHOLD_PARAMS["max_area"])
-            print(f"  {pct:6.1f}   |   {ma:4d}   |    {len(p):4d}")
-
-            # Save each combination as separate image
-            fig, ax = plt.subplots(figsize=(16, 4))
-            ax.imshow(frame, cmap="gray", vmin=0, vmax=frame.max() * 0.3)
-            if len(p) > 0:
-                ax.scatter(p["x"], p["y"], s=50, facecolors="none",
-                           edgecolors="lime", linewidths=1)
-            ax.set_title(f"percentile={pct}, min_area={ma} -> n={len(p)}")
-            ax.axis("off")
-            plt.tight_layout()
-            plt.savefig(OUT_DIR / f"sweep_pct{pct}_area{ma}.png", dpi=100)
-            plt.close()
-
-    print(f"\nSaved sweep images to {OUT_DIR}")
-
-# %%
-# =============================================================================
-# Trackpy Method: Parameter Sweep
-# =============================================================================
-
-if METHOD == "trackpy":
-    print("\n=== Trackpy Method: Current Parameters ===")
-
-    particles = detect(frame, method="trackpy", **TRACKPY_PARAMS)
-
-    fig, ax = plt.subplots(figsize=(16, 4))
-    ax.imshow(frame, cmap="gray", vmin=0, vmax=frame.max() * 0.3)
-    if len(particles) > 0:
-        ax.scatter(particles["x"], particles["y"],
-                   s=100, facecolors="none", edgecolors="red", linewidths=1.5)
-    ax.set_title(f"Trackpy: diameter={TRACKPY_PARAMS['diameter']}, "
-                 f"minmass={TRACKPY_PARAMS['minmass']} -> n={len(particles)}")
-    ax.axis("off")
-    plt.tight_layout()
-    plt.savefig(OUT_DIR / "trackpy_detections.png", dpi=150)
-    plt.show()
-    print(f"Saved: {OUT_DIR / 'trackpy_detections.png'}")
-
-    # Diameter sweep
-    print("\n=== Diameter Sweep ===")
-    diameters = [7, 9, 11, 13, 15, 21]
-    minmass_fixed = TRACKPY_PARAMS["minmass"]
-
-    for d in diameters:
-        p = detect(frame, method="trackpy", diameter=d, minmass=minmass_fixed)
-        print(f"  diameter={d:2d}: {len(p):4d} detections")
-
-        fig, ax = plt.subplots(figsize=(16, 4))
-        ax.imshow(frame, cmap="gray", vmin=0, vmax=frame.max() * 0.3)
-        if len(p) > 0:
-            ax.scatter(p["x"], p["y"], s=50, facecolors="none",
-                       edgecolors="red", linewidths=1)
-        ax.set_title(f"diameter={d}, minmass={minmass_fixed} -> n={len(p)}")
-        ax.axis("off")
-        plt.tight_layout()
-        plt.savefig(OUT_DIR / f"sweep_diameter{d}.png", dpi=100)
-        plt.close()
-
-    # Minmass sweep
-    print("\n=== Minmass Sweep ===")
-    minmasses = [100, 300, 500, 1000, 2000, 5000]
-    diameter_fixed = TRACKPY_PARAMS["diameter"]
-
-    for mm in minmasses:
-        p = detect(frame, method="trackpy", diameter=diameter_fixed, minmass=mm)
-        print(f"  minmass={mm:5d}: {len(p):4d} detections")
-
-        fig, ax = plt.subplots(figsize=(16, 4))
-        ax.imshow(frame, cmap="gray", vmin=0, vmax=frame.max() * 0.3)
-        if len(p) > 0:
-            ax.scatter(p["x"], p["y"], s=50, facecolors="none",
-                       edgecolors="red", linewidths=1)
-        ax.set_title(f"diameter={diameter_fixed}, minmass={mm} -> n={len(p)}")
-        ax.axis("off")
-        plt.tight_layout()
-        plt.savefig(OUT_DIR / f"sweep_minmass{mm}.png", dpi=100)
-        plt.close()
-
-    print(f"\nSaved sweep images to {OUT_DIR}")
-
-# %%
-# =============================================================================
-# Compare Methods
-# =============================================================================
-
-print("\n=== Method Comparison ===")
-
-# Threshold
-p_threshold = detect(frame, method="threshold", **THRESHOLD_PARAMS)
-
+# Detections with current parameters
+particles = detect(frame, **DETECT_PARAMS)
 fig, ax = plt.subplots(figsize=(16, 4))
 ax.imshow(frame, cmap="gray", vmin=0, vmax=frame.max() * 0.3)
-if len(p_threshold) > 0:
-    ax.scatter(p_threshold["x"], p_threshold["y"],
+if len(particles) > 0:
+    ax.scatter(particles["x"], particles["y"],
                s=100, facecolors="none", edgecolors="lime", linewidths=1.5)
-ax.set_title(f"Threshold method: {len(p_threshold)} detections")
+ax.set_title(f"Detections (n={len(particles)})")
 ax.axis("off")
 plt.tight_layout()
-plt.savefig(OUT_DIR / "compare_threshold.png", dpi=150)
+plt.savefig(OUT_DIR / "detections.png", dpi=150)
 plt.show()
-print(f"Threshold: {len(p_threshold)} detections")
+print(f"Saved: {OUT_DIR / 'detections.png'}")
 
-# Trackpy
-p_trackpy = detect(frame, method="trackpy", **TRACKPY_PARAMS)
+# %%
+# =============================================================================
+# Parameter Sweep
+# =============================================================================
 
-fig, ax = plt.subplots(figsize=(16, 4))
-ax.imshow(frame, cmap="gray", vmin=0, vmax=frame.max() * 0.3)
-if len(p_trackpy) > 0:
-    ax.scatter(p_trackpy["x"], p_trackpy["y"],
-               s=100, facecolors="none", edgecolors="red", linewidths=1.5)
-ax.set_title(f"Trackpy method: {len(p_trackpy)} detections")
-ax.axis("off")
-plt.tight_layout()
-plt.savefig(OUT_DIR / "compare_trackpy.png", dpi=150)
-plt.show()
-print(f"Trackpy: {len(p_trackpy)} detections")
+print("\n=== Parameter Sweep ===")
+print("Percentile | min_area | Detections")
+print("-" * 40)
+
+percentiles = [97, 98, 99, 99.5, 99.9]
+min_areas = [10, 30, 50, 100, 200]
+
+for pct in percentiles:
+    for ma in min_areas:
+        p = detect(frame,
+                   threshold_percentile=pct, min_area=ma,
+                   max_area=DETECT_PARAMS["max_area"])
+        print(f"  {pct:6.1f}   |   {ma:4d}   |    {len(p):4d}")
+
+        # Save each combination as separate image
+        fig, ax = plt.subplots(figsize=(16, 4))
+        ax.imshow(frame, cmap="gray", vmin=0, vmax=frame.max() * 0.3)
+        if len(p) > 0:
+            ax.scatter(p["x"], p["y"], s=50, facecolors="none",
+                       edgecolors="lime", linewidths=1)
+        ax.set_title(f"percentile={pct}, min_area={ma} -> n={len(p)}")
+        ax.axis("off")
+        plt.tight_layout()
+        plt.savefig(OUT_DIR / f"sweep_pct{pct}_area{ma}.png", dpi=100)
+        plt.close()
+
+print(f"\nSaved sweep images to {OUT_DIR}")
 
 # %%
 # =============================================================================
@@ -267,34 +157,20 @@ for f_idx in TEST_FRAMES:
         continue
 
     f = frames[f_idx]
+    p = detect(f, **DETECT_PARAMS)
 
-    # Threshold
-    p_t = detect(f, method="threshold", **THRESHOLD_PARAMS)
     fig, ax = plt.subplots(figsize=(16, 4))
     ax.imshow(f, cmap="gray", vmin=0, vmax=f.max() * 0.3)
-    if len(p_t) > 0:
-        ax.scatter(p_t["x"], p_t["y"], s=50, facecolors="none",
+    if len(p) > 0:
+        ax.scatter(p["x"], p["y"], s=50, facecolors="none",
                    edgecolors="lime", linewidths=1)
-    ax.set_title(f"Frame {f_idx} - Threshold: {len(p_t)} detections")
+    ax.set_title(f"Frame {f_idx}: {len(p)} detections")
     ax.axis("off")
     plt.tight_layout()
-    plt.savefig(OUT_DIR / f"multiframe_{f_idx:03d}_threshold.png", dpi=100)
+    plt.savefig(OUT_DIR / f"multiframe_{f_idx:03d}.png", dpi=100)
     plt.close()
 
-    # Trackpy
-    p_k = detect(f, method="trackpy", **TRACKPY_PARAMS)
-    fig, ax = plt.subplots(figsize=(16, 4))
-    ax.imshow(f, cmap="gray", vmin=0, vmax=f.max() * 0.3)
-    if len(p_k) > 0:
-        ax.scatter(p_k["x"], p_k["y"], s=50, facecolors="none",
-                   edgecolors="red", linewidths=1)
-    ax.set_title(f"Frame {f_idx} - Trackpy: {len(p_k)} detections")
-    ax.axis("off")
-    plt.tight_layout()
-    plt.savefig(OUT_DIR / f"multiframe_{f_idx:03d}_trackpy.png", dpi=100)
-    plt.close()
-
-    print(f"Frame {f_idx}: threshold={len(p_t)}, trackpy={len(p_k)}")
+    print(f"Frame {f_idx}: {len(p)} detections")
 
 print(f"\nSaved multi-frame images to {OUT_DIR}")
 
@@ -306,9 +182,8 @@ print(f"\nSaved multi-frame images to {OUT_DIR}")
 print("\n" + "=" * 50)
 print("=== Parameter Tuning Complete ===")
 print("=" * 50)
-print(f"\nCurrent METHOD in config.py: {METHOD}")
 print(f"\nOutput directory: {OUT_DIR}")
 print("\nRecommended next steps:")
 print("1. Review the parameter sweep images")
-print("2. Update config.py with optimal parameters")
+print("2. Update DETECT_PARAMS in config.py with optimal values")
 print("3. Run 03_analysis.py for full pipeline")

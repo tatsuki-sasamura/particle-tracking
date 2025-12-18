@@ -2,7 +2,7 @@
 """Particle tracking analysis pipeline.
 
 This script performs:
-1. Particle detection (threshold or trackpy method)
+1. Particle detection
 2. Trajectory linking
 3. Trajectory filtering
 4. Velocity analysis
@@ -35,17 +35,16 @@ from particle_tracking import (
 
 from config import (
     DATA_DIR,
+    DETECT_PARAMS,
     FRAME_INTERVAL,
     GENERATE_VIDEO_FRAMES,
     MEMORY,
-    METHOD,
     MIN_TRAJ_LENGTH,
     OUTPUT_DIR,
     PIXEL_SIZE,
     SEARCH_RANGE,
     VIDEO_FRAME_RANGE,
     VIS_FRAMES,
-    get_detect_kwargs,
     get_output_dir,
 )
 
@@ -81,15 +80,13 @@ frame_interval = metadata.get("frame_interval", FRAME_INTERVAL)
 # Particle Detection
 # =============================================================================
 
-print(f"\n=== Particle Detection (method={METHOD}) ===")
-detect_kwargs = get_detect_kwargs()
-print(f"Parameters: {detect_kwargs}")
+print(f"\n=== Particle Detection ===")
+print(f"Parameters: {DETECT_PARAMS}")
 
 all_particles = batch_detect(
     frames,
-    method=METHOD,
     show_progress=True,
-    **detect_kwargs,
+    **DETECT_PARAMS,
 )
 
 print(f"Total detections: {len(all_particles)}")
@@ -304,9 +301,7 @@ print(f"\n=== Exporting Results ===")
 
 # Add metadata columns
 filtered["source_file"] = file_stem
-filtered["method"] = METHOD
 velocities["source_file"] = file_stem
-velocities["method"] = METHOD
 
 # Export trajectories and velocities
 paths = export_results(
@@ -321,7 +316,6 @@ for name, path in paths.items():
 # Export trajectory statistics
 traj_stats = compute_trajectory_stats(velocities)
 traj_stats["source_file"] = file_stem
-traj_stats["method"] = METHOD
 traj_stats_path = OUTPUT_DIR / "trajectories" / f"{file_stem}_traj_stats.csv"
 traj_stats.to_csv(traj_stats_path, index=False)
 print(f"Saved: {traj_stats_path}")
@@ -334,11 +328,10 @@ print(f"Saved: {traj_stats_path}")
 ensemble_stats = compute_ensemble_stats(velocities, source_file=file_stem)
 
 print(f"\n{'='*50}")
-print(f"=== Summary (method={METHOD}) ===")
+print(f"=== Summary ===")
 print(f"{'='*50}")
 print(f"File: {file_stem}")
-print(f"Detection method: {METHOD}")
-print(f"Parameters: {detect_kwargs}")
+print(f"Parameters: {DETECT_PARAMS}")
 print(f"")
 print(f"Total detections: {len(all_particles)}")
 print(f"Trajectories (raw): {n_raw}")

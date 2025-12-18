@@ -27,14 +27,13 @@ from particle_tracking import (
 
 from config import (
     DATA_DIR,
+    DETECT_PARAMS,
     FRAME_INTERVAL,
     MEMORY,
-    METHOD,
     MIN_TRAJ_LENGTH,
     OUTPUT_DIR,
     PIXEL_SIZE,
     SEARCH_RANGE,
-    get_detect_kwargs,
 )
 
 # %%
@@ -49,8 +48,7 @@ for f in nd2_files[:5]:
 if len(nd2_files) > 5:
     print(f"  ... and {len(nd2_files) - 5} more")
 
-print(f"\nDetection method: {METHOD}")
-print(f"Parameters: {get_detect_kwargs()}")
+print(f"\nDetection parameters: {DETECT_PARAMS}")
 
 # %%
 # =============================================================================
@@ -61,7 +59,6 @@ print(f"Parameters: {get_detect_kwargs()}")
 def process_single_file(file_path: Path) -> dict:
     """Process a single ND2 file and return statistics."""
     file_stem = file_path.stem
-    detect_kwargs = get_detect_kwargs()
 
     # Load
     frames, metadata = load_nd2_file(file_path)
@@ -71,15 +68,13 @@ def process_single_file(file_path: Path) -> dict:
     # Detect
     all_particles = batch_detect(
         frames,
-        method=METHOD,
         show_progress=False,
-        **detect_kwargs,
+        **DETECT_PARAMS,
     )
 
     if len(all_particles) == 0:
         return {
             "source_file": file_stem,
-            "method": METHOD,
             "n_detections": 0,
             "n_trajectories": 0,
             "mean_speed": float("nan"),
@@ -100,7 +95,6 @@ def process_single_file(file_path: Path) -> dict:
     if filtered["particle"].nunique() == 0:
         return {
             "source_file": file_stem,
-            "method": METHOD,
             "n_detections": len(all_particles),
             "n_trajectories": 0,
             "mean_speed": float("nan"),
@@ -118,9 +112,7 @@ def process_single_file(file_path: Path) -> dict:
 
     # Add metadata columns
     filtered["source_file"] = file_stem
-    filtered["method"] = METHOD
     velocities["source_file"] = file_stem
-    velocities["method"] = METHOD
 
     # Export
     export_results(
@@ -132,7 +124,6 @@ def process_single_file(file_path: Path) -> dict:
 
     # Get stats
     stats = compute_ensemble_stats(velocities, source_file=file_stem)
-    stats["method"] = METHOD
     stats["n_detections"] = len(all_particles)
     stats["status"] = "success"
 
@@ -154,7 +145,6 @@ for file_path in tqdm(nd2_files, desc="Processing files"):
     except Exception as e:
         all_stats.append({
             "source_file": file_path.stem,
-            "method": METHOD,
             "n_detections": 0,
             "n_trajectories": 0,
             "mean_speed": float("nan"),
@@ -170,7 +160,7 @@ for file_path in tqdm(nd2_files, desc="Processing files"):
 summary_df = pd.DataFrame(all_stats)
 
 print(f"\n=== Processing Summary ===")
-print(f"Detection method: {METHOD}")
+print(f"Detection parameters: {DETECT_PARAMS}")
 print(f"Total files: {len(summary_df)}")
 print(f"Successful: {(summary_df['status'] == 'success').sum()}")
 print(f"No particles: {(summary_df['status'] == 'no_particles').sum()}")
@@ -201,7 +191,7 @@ else:
 # %%
 # Show summary table
 print(f"\n=== Summary Table ===")
-display_cols = ["source_file", "method", "n_detections", "n_trajectories", "mean_speed", "status"]
+display_cols = ["source_file", "n_detections", "n_trajectories", "mean_speed", "status"]
 display_cols = [c for c in display_cols if c in summary_df.columns]
 print(summary_df[display_cols].to_string())
 

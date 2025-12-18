@@ -20,26 +20,13 @@ def get_output_dir(script_file: str) -> Path:
     return out_dir
 
 # =============================================================================
-# Detection Method
+# Detection Parameters (Threshold method - DefocusTracker Method 0)
 # =============================================================================
 
-# Choose detection method: "threshold" or "trackpy"
-METHOD = "threshold"
-
-# Threshold method parameters (DefocusTracker Method 0)
-# Good for defocused particles with ring patterns
-THRESHOLD_PARAMS = {
+DETECT_PARAMS = {
     "threshold_percentile": 99.5,  # Higher = fewer detections
     "min_area": 50,  # Minimum particle area in pixels
     "max_area": 5000,  # Maximum particle area in pixels
-}
-
-# Trackpy method parameters (Crocker-Grier blob detection)
-# Good for Gaussian-like particle profiles
-TRACKPY_PARAMS = {
-    "diameter": 11,  # Expected particle diameter (must be odd)
-    "minmass": 1000,  # Minimum integrated brightness
-    "separation": None,  # Minimum separation (default: diameter)
 }
 
 # =============================================================================
@@ -67,15 +54,3 @@ VIS_FRAMES = [0, 50, 100, 150, 199]
 # Generate frame-by-frame images for video
 GENERATE_VIDEO_FRAMES = False
 VIDEO_FRAME_RANGE = range(0, 200)  # Which frames to export
-
-# =============================================================================
-# Helper function
-# =============================================================================
-
-
-def get_detect_kwargs() -> dict:
-    """Get detection parameters for current method."""
-    if METHOD == "threshold":
-        return THRESHOLD_PARAMS.copy()
-    else:
-        return TRACKPY_PARAMS.copy()

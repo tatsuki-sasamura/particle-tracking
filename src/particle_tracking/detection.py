@@ -1,21 +1,15 @@
 # %%
-"""Particle detection using trackpy and threshold-based methods."""
+"""Particle detection using threshold-based method (DefocusTracker Method 0)."""
 
 import numpy as np
 import pandas as pd
-import trackpy as tp
 from scipy import ndimage
 from skimage import measure
 from tqdm import tqdm
 
 
 # %%
-# =============================================================================
-# Method 0: Threshold-based detection (like DefocusTracker)
-# =============================================================================
-
-
-def _detect_threshold(
+def detect(
     frame: np.ndarray,
     threshold: float | None = None,
     threshold_percentile: float = 99.0,
@@ -24,7 +18,7 @@ def _detect_threshold(
 ) -> pd.DataFrame:
     """Detect particles using intensity threshold and connected components.
 
-    This is similar to DefocusTracker's Method 0 - simple threshold-based
+    This implements DefocusTracker's Method 0 - simple threshold-based
     detection that works well for defocused particle patterns.
 
     Parameters
@@ -45,7 +39,6 @@ def _detect_threshold(
     pd.DataFrame
         DataFrame with columns: x, y, mass, area, bbox, etc.
     """
-
     # Determine threshold
     if threshold is None:
         threshold = np.percentile(frame, threshold_percentile)
@@ -95,7 +88,8 @@ def _detect_threshold(
     return pd.DataFrame(columns=["x", "y", "mass", "area"])
 
 
-def _batch_threshold(
+# %%
+def batch_detect(
     frames: np.ndarray,
     threshold: float | None = None,
     threshold_percentile: float = 99.0,
@@ -129,10 +123,10 @@ def _batch_threshold(
 
     iterator = range(len(frames))
     if show_progress:
-        iterator = tqdm(iterator, desc="Detecting particles (threshold)")
+        iterator = tqdm(iterator, desc="Detecting particles")
 
     for i in iterator:
-        features = _detect_threshold(
+        features = detect(
             frames[i],
             threshold=threshold,
             threshold_percentile=threshold_percentile,
@@ -150,197 +144,13 @@ def _batch_threshold(
 
 
 # %%
-# =============================================================================
-# Trackpy blob detection (Crocker-Grier algorithm)
-# =============================================================================
-
-
-def _detect_trackpy(
-    frame: np.ndarray,
-    diameter: int = 11,
-    minmass: float | None = None,
-    separation: float | None = None,
-    **kwargs,
-) -> pd.DataFrame:
-    """Detect particles in a single frame.
-
-    Parameters
-    ----------
-    frame : np.ndarray
-        Input image.
-    diameter : int, optional
-        Expected particle diameter in pixels (must be odd, default: 11).
-    minmass : float, optional
-        Minimum integrated brightness for a particle.
-    separation : float, optional
-        Minimum separation between particles (default: diameter).
-    **kwargs
-        Additional arguments passed to trackpy.locate.
-
-    Returns
-    -------
-    pd.DataFrame
-        DataFrame with columns: x, y, mass, size, ecc, signal, raw_mass, etc.
-    """
-    # Ensure diameter is odd
-    if diameter % 2 == 0:
-        diameter += 1
-
-    # Set defaults
-    if separation is None:
-        separation = diameter
-
-    # Detect particles
-    features = tp.locate(
-        frame,
-        diameter=diameter,
-        minmass=minmass,
-        separation=separation,
-        **kwargs,
-    )
-
-    return features
-
-
-# %%
-def _batch_trackpy(
-    frames: np.ndarray,
-    diameter: int = 11,
-    minmass: float | None = None,
-    separation: float | None = None,
-    show_progress: bool = True,
-    **kwargs,
-) -> pd.DataFrame:
-    """Detect particles in all frames.
-
-    Parameters
-    ----------
-    frames : np.ndarray
-        Array of frames with shape (n_frames, height, width).
-    diameter : int, optional
-        Expected particle diameter in pixels (default: 11).
-    minmass : float, optional
-        Minimum integrated brightness for a particle.
-    separation : float, optional
-        Minimum separation between particles.
-    show_progress : bool, optional
-        Whether to show progress bar (default: True).
-    **kwargs
-        Additional arguments passed to trackpy.locate.
-
-    Returns
-    -------
-    pd.DataFrame
-        DataFrame with detected particles from all frames.
-        Includes 'frame' column indicating source frame.
-    """
-    all_features = []
-
-    iterator = range(len(frames))
-    if show_progress:
-        iterator = tqdm(iterator, desc="Detecting particles")
-
-    for i in iterator:
-        frame = frames[i]
-
-        features = tp.locate(
-            frame,
-            diameter=diameter if diameter % 2 == 1 else diameter + 1,
-            minmass=minmass,
-            separation=separation or diameter,
-            **kwargs,
-        )
-
-        if len(features) > 0:
-            features["frame"] = i
-            all_features.append(features)
-
-    if all_features:
-        return pd.concat(all_features, ignore_index=True)
-    return pd.DataFrame()
-
-
-# %%
-# =============================================================================
-# Unified interface
-# =============================================================================
-
-
-def detect(
-    frame: np.ndarray,
-    method: str = "threshold",
-    **kwargs,
-) -> pd.DataFrame:
-    """Detect particles in a single frame using specified method.
-
-    Parameters
-    ----------
-    frame : np.ndarray
-        Input image.
-    method : str, optional
-        Detection method: "threshold" (DefocusTracker Method 0) or "trackpy".
-        Default: "threshold".
-    **kwargs
-        Method-specific parameters:
-        - threshold: threshold_percentile, min_area, max_area
-        - trackpy: diameter, minmass, separation
-
-    Returns
-    -------
-    pd.DataFrame
-        DataFrame with columns: x, y, mass, frame, and method-specific columns.
-    """
-    if method == "threshold":
-        return _detect_threshold(frame, **kwargs)
-    elif method == "trackpy":
-        return _detect_trackpy(frame, **kwargs)
-    else:
-        raise ValueError(f"Unknown method: {method}. Use 'threshold' or 'trackpy'.")
-
-
-def batch_detect(
-    frames: np.ndarray,
-    method: str = "threshold",
-    show_progress: bool = True,
-    **kwargs,
-) -> pd.DataFrame:
-    """Detect particles in all frames using specified method.
-
-    Parameters
-    ----------
-    frames : np.ndarray
-        Array of frames with shape (n_frames, height, width).
-    method : str, optional
-        Detection method: "threshold" (DefocusTracker Method 0) or "trackpy".
-        Default: "threshold".
-    show_progress : bool, optional
-        Whether to show progress bar (default: True).
-    **kwargs
-        Method-specific parameters:
-        - threshold: threshold_percentile, min_area, max_area
-        - trackpy: diameter, minmass, separation
-
-    Returns
-    -------
-    pd.DataFrame
-        DataFrame with detected particles from all frames.
-    """
-    if method == "threshold":
-        return _batch_threshold(frames, show_progress=show_progress, **kwargs)
-    elif method == "trackpy":
-        return _batch_trackpy(frames, show_progress=show_progress, **kwargs)
-    else:
-        raise ValueError(f"Unknown method: {method}. Use 'threshold' or 'trackpy'.")
-
-
-# %%
 def filter_particles(
     features: pd.DataFrame,
     min_mass: float | None = None,
     max_mass: float | None = None,
     max_ecc: float | None = None,
-    min_size: float | None = None,
-    max_size: float | None = None,
+    min_area: float | None = None,
+    max_area: float | None = None,
 ) -> pd.DataFrame:
     """Filter detected particles based on properties.
 
@@ -354,10 +164,10 @@ def filter_particles(
         Maximum mass.
     max_ecc : float, optional
         Maximum eccentricity (0 = circular).
-    min_size : float, optional
-        Minimum size (Gaussian sigma).
-    max_size : float, optional
-        Maximum size.
+    min_area : float, optional
+        Minimum area in pixels.
+    max_area : float, optional
+        Maximum area in pixels.
 
     Returns
     -------
@@ -370,11 +180,11 @@ def filter_particles(
         mask &= features["mass"] >= min_mass
     if max_mass is not None and "mass" in features.columns:
         mask &= features["mass"] <= max_mass
-    if max_ecc is not None and "ecc" in features.columns:
-        mask &= features["ecc"] <= max_ecc
-    if min_size is not None and "size" in features.columns:
-        mask &= features["size"] >= min_size
-    if max_size is not None and "size" in features.columns:
-        mask &= features["size"] <= max_size
+    if max_ecc is not None and "eccentricity" in features.columns:
+        mask &= features["eccentricity"] <= max_ecc
+    if min_area is not None and "area" in features.columns:
+        mask &= features["area"] >= min_area
+    if max_area is not None and "area" in features.columns:
+        mask &= features["area"] <= max_area
 
     return features[mask].reset_index(drop=True)
