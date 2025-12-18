@@ -78,11 +78,13 @@ print(f"Generate images: {GENERATE_IMAGES}")
 
 def generate_trajectory_images(
     frames: np.ndarray,
-    filtered: pd.DataFrame,
+    all_particles: pd.DataFrame | None,
+    filtered: pd.DataFrame | None,
     file_stem: str,
     output_dir: Path,
     vis_frames: list[int],
     frame_interval: float,
+    status: str,
 ) -> None:
     """Generate trajectory visualization images."""
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -94,20 +96,38 @@ def generate_trajectory_images(
         fig, ax = plt.subplots(figsize=(20, 4))
         ax.imshow(frames[t], cmap="gray", vmin=0, vmax=frames[t].max() * 0.3)
 
-        # Get trajectories up to this frame
-        traj_up_to_t = filtered[filtered["frame"] <= t]
+        n_detections = 0
+        n_traj = 0
 
-        for pid in traj_up_to_t["particle"].unique():
-            traj = traj_up_to_t[traj_up_to_t["particle"] == pid]
-            ax.plot(traj["x"], traj["y"], linewidth=1.5, alpha=0.8)
+        # Draw detections (circles) if available
+        if all_particles is not None and len(all_particles) > 0:
+            frame_particles = all_particles[all_particles["frame"] == t]
+            n_detections = len(frame_particles)
+            if n_detections > 0:
+                ax.scatter(
+                    frame_particles["x"], frame_particles["y"],
+                    s=100, facecolors="none", edgecolors="cyan", linewidths=1, alpha=0.5
+                )
 
-            current = traj[traj["frame"] == t]
-            if len(current) > 0:
-                ax.scatter(current["x"], current["y"], s=30, c="red", zorder=5)
+        # Draw trajectories if available
+        if filtered is not None and len(filtered) > 0:
+            traj_up_to_t = filtered[filtered["frame"] <= t]
+            n_traj = traj_up_to_t["particle"].nunique()
+
+            for pid in traj_up_to_t["particle"].unique():
+                traj = traj_up_to_t[traj_up_to_t["particle"] == pid]
+                ax.plot(traj["x"], traj["y"], linewidth=1.5, alpha=0.8)
+
+                current = traj[traj["frame"] == t]
+                if len(current) > 0:
+                    ax.scatter(current["x"], current["y"], s=30, c="red", zorder=5)
 
         time_ms = t * frame_interval * 1000
-        n_traj = traj_up_to_t["particle"].nunique()
-        ax.set_title(f"{file_stem} - Frame {t} (t={time_ms:.0f}ms) - {n_traj} trajectories")
+        title = f"{file_stem} - Frame {t} (t={time_ms:.0f}ms)"
+        title += f" - {n_detections} detections, {n_traj} trajectories"
+        if status != "success":
+            title += f" [{status}]"
+        ax.set_title(title)
         ax.axis("off")
 
         plt.tight_layout()
@@ -132,73 +152,78 @@ def process_single_file(file_path: Path) -> dict:
             **DETECT_PARAMS,
         )
 
+        # Initialize variables
+        filtered = None
+        velocities = None
+        status = "success"
+        n_trajectories = 0
+        mean_speed = float("nan")
+        std_speed = float("nan")
+
         if len(all_particles) == 0:
-            return {
-                "source_file": file_stem,
-                "n_detections": 0,
-                "n_trajectories": 0,
-                "mean_speed": float("nan"),
-                "std_speed": float("nan"),
-                "status": "no_particles",
-            }
+            status = "no_particles"
+        else:
+            # Link
+            trajectories = link_trajectories(
+                all_particles,
+                search_range=SEARCH_RANGE,
+                memory=MEMORY,
+            )
 
-        # Link
-        trajectories = link_trajectories(
-            all_particles,
-            search_range=SEARCH_RANGE,
-            memory=MEMORY,
-        )
+            # Filter
+            filtered = filter_trajectories(trajectories, min_length=MIN_TRAJ_LENGTH)
+            n_trajectories = filtered["particle"].nunique()
 
-        # Filter
-        filtered = filter_trajectories(trajectories, min_length=MIN_TRAJ_LENGTH)
+            if n_trajectories == 0:
+                status = "no_trajectories"
+            else:
+                # Compute velocities
+                velocities = compute_velocities(
+                    filtered,
+                    pixel_size=pixel_size,
+                    dt=frame_interval,
+                )
+                velocities = add_time_column(velocities, dt=frame_interval)
 
-        if filtered["particle"].nunique() == 0:
-            return {
-                "source_file": file_stem,
-                "n_detections": len(all_particles),
-                "n_trajectories": 0,
-                "mean_speed": float("nan"),
-                "std_speed": float("nan"),
-                "status": "no_trajectories",
-            }
+                # Add metadata columns
+                filtered["source_file"] = file_stem
+                velocities["source_file"] = file_stem
 
-        # Compute velocities
-        velocities = compute_velocities(
-            filtered,
-            pixel_size=pixel_size,
-            dt=frame_interval,
-        )
-        velocities = add_time_column(velocities, dt=frame_interval)
+                # Export CSVs
+                export_results(
+                    filtered,
+                    velocities,
+                    OUTPUT_DIR / "trajectories",
+                    prefix=file_stem,
+                )
 
-        # Add metadata columns
-        filtered["source_file"] = file_stem
-        velocities["source_file"] = file_stem
+                # Get speed stats
+                valid_speeds = velocities["speed"].dropna()
+                if len(valid_speeds) > 0:
+                    mean_speed = valid_speeds.mean()
+                    std_speed = valid_speeds.std()
 
-        # Export CSVs
-        export_results(
-            filtered,
-            velocities,
-            OUTPUT_DIR / "trajectories",
-            prefix=file_stem,
-        )
-
-        # Generate trajectory images
+        # Generate trajectory images (always, regardless of status)
         if GENERATE_IMAGES:
             generate_trajectory_images(
                 frames=frames,
+                all_particles=all_particles if len(all_particles) > 0 else None,
                 filtered=filtered,
                 file_stem=file_stem,
                 output_dir=OUTPUT_DIR / "04_batch_processing",
                 vis_frames=VIS_FRAMES,
                 frame_interval=frame_interval,
+                status=status,
             )
 
-        # Get stats
-        stats = compute_ensemble_stats(velocities, source_file=file_stem)
-        stats["n_detections"] = len(all_particles)
-        stats["status"] = "success"
-
-        return stats
+        return {
+            "source_file": file_stem,
+            "n_detections": len(all_particles),
+            "n_trajectories": n_trajectories,
+            "mean_speed": mean_speed,
+            "std_speed": std_speed,
+            "status": status,
+        }
 
     except Exception as e:
         return {
