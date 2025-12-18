@@ -9,7 +9,11 @@ from .analysis import (
     compute_velocities,
     export_results,
 )
-from .detection import batch_detect, detect_particles, filter_particles
+from .detection import (
+    batch_detect,
+    detect,
+    filter_particles,
+)
 from .io_utils import (
     get_frame_interval,
     get_pixel_size,
@@ -43,7 +47,7 @@ __all__ = [
     "normalize_intensity",
     "preprocess_frame",
     # detection
-    "detect_particles",
+    "detect",
     "batch_detect",
     "filter_particles",
     # tracking
