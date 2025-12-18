@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
@@ -175,6 +176,45 @@ plot_path = OUTPUT_DIR / "summary" / "filter_Y_DY.png"
 plt.savefig(plot_path, dpi=150)
 plt.show()
 print(f"Saved: {plot_path}")
+
+# %%
+# =============================================================================
+# Visualization: Sample Distribution (XY heatmap)
+# =============================================================================
+
+n_x_bins, n_y_bins = 20, 20
+x_edges = np.linspace(data_filtered["X"].min(), data_filtered["X"].max(), n_x_bins + 1)
+y_edges = np.linspace(data_filtered["Y"].min(), data_filtered["Y"].max(), n_y_bins + 1)
+
+counts, _, _ = np.histogram2d(data_filtered["X"], data_filtered["Y"], bins=[x_edges, y_edges])
+
+fig, ax = plt.subplots(figsize=(12, 6))
+cmap = plt.cm.viridis.copy()
+cmap.set_under("lightgray")
+
+im = ax.imshow(
+    counts.T,
+    origin="lower",
+    aspect="auto",
+    extent=[x_edges[0], x_edges[-1], y_edges[0], y_edges[-1]],
+    cmap=cmap,
+    vmin=0.5,
+    vmax=20,
+)
+ax.set_xlabel("X (um)")
+ax.set_ylabel("Y (um)")
+ax.set_title(f"Sample distribution ({n_x_bins}x{n_y_bins} bins, gray=no data)")
+plt.colorbar(im, ax=ax, label="Count (capped at 20)", extend="both")
+plt.tight_layout()
+
+plot_path = OUTPUT_DIR / "summary" / "sample_distribution_xy.png"
+plt.savefig(plot_path, dpi=150)
+plt.show()
+print(f"Saved: {plot_path}")
+
+empty_bins = (counts == 0).sum()
+print(f"Empty bins: {empty_bins}/{counts.size} ({empty_bins/counts.size*100:.0f}%)")
+print(f"Median count: {np.median(counts):.0f}")
 
 # %%
 # =============================================================================

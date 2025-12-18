@@ -32,7 +32,7 @@ def get_output_dir(script_file: str) -> Path:
 # - Pixels above this value are considered part of a particle
 # - Must be set based on your data (use 02_particle_detection.py to tune)
 # - Use estimate_threshold(frame, percentile) to get a starting value
-BOUNDARY_THRESHOLD = 4000  # Adjust based on your data
+BOUNDARY_THRESHOLD = 2000  # Adjust based on your data
 
 # min_area: Minimum particle area in pixels
 MIN_AREA = 30
