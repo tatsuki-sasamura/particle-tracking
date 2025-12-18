@@ -12,6 +12,7 @@ from .analysis import (
 from .detection import (
     batch_detect,
     detect,
+    estimate_threshold,
     filter_particles,
 )
 from .io_utils import (
@@ -38,6 +39,7 @@ __all__ = [
     # detection
     "detect",
     "batch_detect",
+    "estimate_threshold",
     "filter_particles",
     # tracking
     "link_trajectories",

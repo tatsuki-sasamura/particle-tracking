@@ -1,5 +1,15 @@
 # %%
-"""Particle detection using threshold-based method (DefocusTracker Method 0)."""
+"""Particle detection using threshold-based method.
+
+This implements DefocusTracker's Method 0 (boundary_threshold_2d) algorithm
+for 2D particle detection. The implementation follows the original MATLAB
+code from: https://gitlab.com/defocustracking/defocustracker-matlab
+
+Reference:
+    R. Barnkob and M. Rossi, DefocusTracker: A modular toolbox for
+    defocusing-based, single-camera, 3D particle tracking.
+    Journal of Open Research Software, 9(1), 22 (2021).
+"""
 
 import numpy as np
 import pandas as pd
@@ -11,90 +21,103 @@ from tqdm import tqdm
 # %%
 def detect(
     frame: np.ndarray,
-    threshold: float | None = None,
-    threshold_percentile: float = 99.0,
-    min_area: int = 10,
-    max_area: int = 10000,
+    boundary_threshold: float,
+    min_area: int = 30,
+    median_filter: int = 1,
+    gauss_filter: int = 1,
 ) -> pd.DataFrame:
     """Detect particles using intensity threshold and connected components.
 
-    This implements DefocusTracker's Method 0 - simple threshold-based
-    detection that works well for defocused particle patterns.
+    This implements DefocusTracker's Method 0 (boundary_threshold_2d).
+    Algorithm:
+    1. Optional preprocessing (median filter, Gaussian filter)
+    2. Binary threshold: pixels > boundary_threshold
+    3. Fill holes in binary mask
+    4. Label connected components (8-connectivity)
+    5. Filter by minimum area
+    6. Extract geometric centroid of each region
 
     Parameters
     ----------
     frame : np.ndarray
         Input image.
-    threshold : float, optional
-        Absolute intensity threshold. If None, uses threshold_percentile.
-    threshold_percentile : float, optional
-        Percentile of image intensity to use as threshold (default: 99.0).
+    boundary_threshold : float
+        Absolute intensity threshold. Pixels above this value are considered
+        part of a particle.
     min_area : int, optional
-        Minimum particle area in pixels (default: 10).
-    max_area : int, optional
-        Maximum particle area in pixels (default: 10000).
+        Minimum particle area in pixels (default: 30).
+    median_filter : int, optional
+        Median filter size. Set to 1 to disable (default: 1).
+    gauss_filter : int, optional
+        Gaussian filter size. Set to 1 to disable (default: 1).
 
     Returns
     -------
     pd.DataFrame
-        DataFrame with columns: x, y, mass, area, bbox, etc.
+        DataFrame with columns: x, y, area.
     """
-    # Determine threshold
-    if threshold is None:
-        threshold = np.percentile(frame, threshold_percentile)
+    # Preprocessing (same as DefocusTracker)
+    img = frame.copy()
+
+    # Convert to grayscale if needed
+    if img.ndim == 3:
+        img = np.mean(img, axis=2)
+
+    # Median filter
+    if median_filter > 1:
+        img = ndimage.median_filter(img, size=median_filter)
+
+    # Gaussian filter
+    if gauss_filter > 1:
+        img = ndimage.gaussian_filter(img, sigma=gauss_filter)
 
     # Binary threshold
-    binary = frame > threshold
+    binary = img > boundary_threshold
 
-    # Label connected components
-    labeled, num_features = ndimage.label(binary)
+    # Fill holes (same as MATLAB's imfill)
+    binary = ndimage.binary_fill_holes(binary)
+
+    # Label connected components (8-connectivity, same as bwboundaries with 8)
+    # Using structure for 8-connectivity
+    structure = ndimage.generate_binary_structure(2, 2)  # 8-connectivity
+    labeled, num_features = ndimage.label(binary, structure=structure)
 
     if num_features == 0:
-        return pd.DataFrame(columns=["x", "y", "mass", "area"])
+        return pd.DataFrame(columns=["x", "y", "area"])
 
-    # Get region properties
-    regions = measure.regionprops(labeled, intensity_image=frame)
+    # Get region properties (geometric centroid, same as DefocusTracker)
+    regions = measure.regionprops(labeled)
 
     # Extract particle data
     particles = []
     for region in regions:
         area = region.area
 
-        # Filter by area
-        if area < min_area or area > max_area:
+        # Filter by min area (same as DefocusTracker)
+        if area < min_area:
             continue
 
-        # Centroid (y, x in regionprops)
+        # Geometric centroid (y, x in regionprops) - same as DefocusTracker
         cy, cx = region.centroid
-        # Weighted centroid (intensity-weighted)
-        cy_w, cx_w = region.centroid_weighted
 
         particles.append({
-            "x": cx_w,  # Use intensity-weighted centroid
-            "y": cy_w,
-            "mass": region.intensity_mean * area,  # Total intensity
+            "x": cx,
+            "y": cy,
             "area": area,
-            "intensity_mean": region.intensity_mean,
-            "intensity_max": region.intensity_max,
-            "eccentricity": region.eccentricity,
-            "bbox_x": region.bbox[1],
-            "bbox_y": region.bbox[0],
-            "bbox_w": region.bbox[3] - region.bbox[1],
-            "bbox_h": region.bbox[2] - region.bbox[0],
         })
 
     if particles:
         return pd.DataFrame(particles)
-    return pd.DataFrame(columns=["x", "y", "mass", "area"])
+    return pd.DataFrame(columns=["x", "y", "area"])
 
 
 # %%
 def batch_detect(
     frames: np.ndarray,
-    threshold: float | None = None,
-    threshold_percentile: float = 99.0,
-    min_area: int = 10,
-    max_area: int = 10000,
+    boundary_threshold: float,
+    min_area: int = 30,
+    median_filter: int = 1,
+    gauss_filter: int = 1,
     show_progress: bool = True,
 ) -> pd.DataFrame:
     """Detect particles in all frames using threshold method.
@@ -103,14 +126,14 @@ def batch_detect(
     ----------
     frames : np.ndarray
         Array of frames with shape (n_frames, height, width).
-    threshold : float, optional
-        Absolute intensity threshold. If None, uses threshold_percentile.
-    threshold_percentile : float, optional
-        Percentile of image intensity to use as threshold (default: 99.0).
+    boundary_threshold : float
+        Absolute intensity threshold.
     min_area : int, optional
-        Minimum particle area in pixels (default: 10).
-    max_area : int, optional
-        Maximum particle area in pixels (default: 10000).
+        Minimum particle area in pixels (default: 30).
+    median_filter : int, optional
+        Median filter size. Set to 1 to disable (default: 1).
+    gauss_filter : int, optional
+        Gaussian filter size. Set to 1 to disable (default: 1).
     show_progress : bool, optional
         Whether to show progress bar (default: True).
 
@@ -128,10 +151,10 @@ def batch_detect(
     for i in iterator:
         features = detect(
             frames[i],
-            threshold=threshold,
-            threshold_percentile=threshold_percentile,
+            boundary_threshold=boundary_threshold,
             min_area=min_area,
-            max_area=max_area,
+            median_filter=median_filter,
+            gauss_filter=gauss_filter,
         )
 
         if len(features) > 0:
@@ -144,11 +167,31 @@ def batch_detect(
 
 
 # %%
+def estimate_threshold(frame: np.ndarray, percentile: float = 99.0) -> float:
+    """Estimate a good boundary threshold from image percentile.
+
+    Helper function to estimate boundary_threshold from a sample frame.
+    DefocusTracker requires an absolute threshold value, this helps
+    find a reasonable starting point.
+
+    Parameters
+    ----------
+    frame : np.ndarray
+        Sample image.
+    percentile : float, optional
+        Percentile to use (default: 99.0).
+
+    Returns
+    -------
+    float
+        Estimated threshold value.
+    """
+    return float(np.percentile(frame, percentile))
+
+
+# %%
 def filter_particles(
     features: pd.DataFrame,
-    min_mass: float | None = None,
-    max_mass: float | None = None,
-    max_ecc: float | None = None,
     min_area: float | None = None,
     max_area: float | None = None,
 ) -> pd.DataFrame:
@@ -158,12 +201,6 @@ def filter_particles(
     ----------
     features : pd.DataFrame
         DataFrame from detect or batch_detect.
-    min_mass : float, optional
-        Minimum mass (integrated brightness).
-    max_mass : float, optional
-        Maximum mass.
-    max_ecc : float, optional
-        Maximum eccentricity (0 = circular).
     min_area : float, optional
         Minimum area in pixels.
     max_area : float, optional
@@ -176,12 +213,6 @@ def filter_particles(
     """
     mask = pd.Series(True, index=features.index)
 
-    if min_mass is not None and "mass" in features.columns:
-        mask &= features["mass"] >= min_mass
-    if max_mass is not None and "mass" in features.columns:
-        mask &= features["mass"] <= max_mass
-    if max_ecc is not None and "eccentricity" in features.columns:
-        mask &= features["eccentricity"] <= max_ecc
     if min_area is not None and "area" in features.columns:
         mask &= features["area"] >= min_area
     if max_area is not None and "area" in features.columns:

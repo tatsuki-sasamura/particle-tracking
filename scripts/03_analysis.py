@@ -2,7 +2,7 @@
 """Particle tracking analysis pipeline.
 
 This script performs:
-1. Particle detection
+1. Particle detection (DefocusTracker Method 0)
 2. Trajectory linking
 3. Trajectory filtering
 4. Velocity analysis
@@ -80,7 +80,7 @@ frame_interval = metadata.get("frame_interval", FRAME_INTERVAL)
 # Particle Detection
 # =============================================================================
 
-print(f"\n=== Particle Detection ===")
+print(f"\n=== Particle Detection (DefocusTracker Method 0) ===")
 print(f"Parameters: {DETECT_PARAMS}")
 
 all_particles = batch_detect(
@@ -331,6 +331,7 @@ print(f"\n{'='*50}")
 print(f"=== Summary ===")
 print(f"{'='*50}")
 print(f"File: {file_stem}")
+print(f"Detection: DefocusTracker Method 0")
 print(f"Parameters: {DETECT_PARAMS}")
 print(f"")
 print(f"Total detections: {len(all_particles)}")

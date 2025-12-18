@@ -2,6 +2,7 @@
 """Batch processing script for all ND2 files.
 
 Processes all ND2 files in the data directory using parameters from config.py.
+Detection uses DefocusTracker Method 0 (boundary_threshold_2d).
 """
 
 import sys
@@ -48,7 +49,8 @@ for f in nd2_files[:5]:
 if len(nd2_files) > 5:
     print(f"  ... and {len(nd2_files) - 5} more")
 
-print(f"\nDetection parameters: {DETECT_PARAMS}")
+print(f"\nDetection: DefocusTracker Method 0")
+print(f"Parameters: {DETECT_PARAMS}")
 
 # %%
 # =============================================================================
@@ -160,7 +162,8 @@ for file_path in tqdm(nd2_files, desc="Processing files"):
 summary_df = pd.DataFrame(all_stats)
 
 print(f"\n=== Processing Summary ===")
-print(f"Detection parameters: {DETECT_PARAMS}")
+print(f"Detection: DefocusTracker Method 0")
+print(f"Parameters: {DETECT_PARAMS}")
 print(f"Total files: {len(summary_df)}")
 print(f"Successful: {(summary_df['status'] == 'success').sum()}")
 print(f"No particles: {(summary_df['status'] == 'no_particles').sum()}")

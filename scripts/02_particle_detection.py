@@ -2,6 +2,8 @@
 """Particle detection parameter tuning script.
 
 Use this script to find optimal detection parameters for your data.
+This implements DefocusTracker's Method 0 (boundary_threshold_2d).
+
 After tuning, update config.py with the optimal parameters.
 """
 
@@ -14,7 +16,7 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 sys.path.insert(0, str(Path(__file__).parent))
 
-from particle_tracking import detect, load_nd2_file
+from particle_tracking import detect, estimate_threshold, load_nd2_file
 
 from config import (
     DATA_DIR,
@@ -66,15 +68,28 @@ print(f"Saved: {OUT_DIR / 'frame.png'}")
 
 # %%
 # =============================================================================
+# Estimate Threshold
+# =============================================================================
+
+print("\n=== Threshold Estimation ===")
+print("Suggested boundary_threshold values based on percentiles:")
+
+for pct in [95, 97, 98, 99, 99.5, 99.9]:
+    thresh = estimate_threshold(frame, pct)
+    print(f"  {pct:5.1f}th percentile -> threshold = {thresh:.1f}")
+
+# %%
+# =============================================================================
 # Current Parameters
 # =============================================================================
 
 print(f"\n{'='*50}")
-print("Current detection parameters:")
+print("Current detection parameters (from config.py):")
 print(f"{'='*50}")
-print(f"  threshold_percentile: {DETECT_PARAMS['threshold_percentile']}")
+print(f"  boundary_threshold: {DETECT_PARAMS['boundary_threshold']}")
 print(f"  min_area: {DETECT_PARAMS['min_area']}")
-print(f"  max_area: {DETECT_PARAMS['max_area']}")
+print(f"  median_filter: {DETECT_PARAMS['median_filter']}")
+print(f"  gauss_filter: {DETECT_PARAMS['gauss_filter']}")
 
 # %%
 # =============================================================================
@@ -83,14 +98,13 @@ print(f"  max_area: {DETECT_PARAMS['max_area']}")
 
 print("\n=== Threshold Visualization ===")
 
-pct = DETECT_PARAMS["threshold_percentile"]
-threshold = np.percentile(frame, pct)
+threshold = DETECT_PARAMS["boundary_threshold"]
 binary = frame > threshold
 
-# Binary mask
+# Binary mask (before hole filling)
 fig, ax = plt.subplots(figsize=(16, 4))
 ax.imshow(binary, cmap="gray")
-ax.set_title(f"Binary mask (percentile={pct}, threshold={threshold:.1f})")
+ax.set_title(f"Binary mask (threshold={threshold})")
 ax.axis("off")
 plt.tight_layout()
 plt.savefig(OUT_DIR / "threshold_binary.png", dpi=150)
@@ -113,36 +127,60 @@ print(f"Saved: {OUT_DIR / 'detections.png'}")
 
 # %%
 # =============================================================================
-# Parameter Sweep
+# Parameter Sweep: Threshold
 # =============================================================================
 
-print("\n=== Parameter Sweep ===")
-print("Percentile | min_area | Detections")
-print("-" * 40)
+print("\n=== Threshold Sweep ===")
+print("Threshold | Detections")
+print("-" * 30)
 
-percentiles = [97, 98, 99, 99.5, 99.9]
-min_areas = [10, 30, 50, 100, 200]
+# Generate threshold values from percentiles
+thresholds = [estimate_threshold(frame, p) for p in [95, 97, 98, 99, 99.5, 99.9]]
 
-for pct in percentiles:
-    for ma in min_areas:
-        p = detect(frame,
-                   threshold_percentile=pct, min_area=ma,
-                   max_area=DETECT_PARAMS["max_area"])
-        print(f"  {pct:6.1f}   |   {ma:4d}   |    {len(p):4d}")
+for thresh in thresholds:
+    p = detect(frame, boundary_threshold=thresh, min_area=DETECT_PARAMS["min_area"])
+    print(f"  {thresh:7.1f}  |    {len(p):4d}")
 
-        # Save each combination as separate image
-        fig, ax = plt.subplots(figsize=(16, 4))
-        ax.imshow(frame, cmap="gray", vmin=0, vmax=frame.max() * 0.3)
-        if len(p) > 0:
-            ax.scatter(p["x"], p["y"], s=50, facecolors="none",
-                       edgecolors="lime", linewidths=1)
-        ax.set_title(f"percentile={pct}, min_area={ma} -> n={len(p)}")
-        ax.axis("off")
-        plt.tight_layout()
-        plt.savefig(OUT_DIR / f"sweep_pct{pct}_area{ma}.png", dpi=100)
-        plt.close()
+    fig, ax = plt.subplots(figsize=(16, 4))
+    ax.imshow(frame, cmap="gray", vmin=0, vmax=frame.max() * 0.3)
+    if len(p) > 0:
+        ax.scatter(p["x"], p["y"], s=50, facecolors="none",
+                   edgecolors="lime", linewidths=1)
+    ax.set_title(f"threshold={thresh:.0f} -> n={len(p)}")
+    ax.axis("off")
+    plt.tight_layout()
+    plt.savefig(OUT_DIR / f"sweep_thresh{thresh:.0f}.png", dpi=100)
+    plt.close()
 
-print(f"\nSaved sweep images to {OUT_DIR}")
+print(f"\nSaved threshold sweep images to {OUT_DIR}")
+
+# %%
+# =============================================================================
+# Parameter Sweep: Min Area
+# =============================================================================
+
+print("\n=== Min Area Sweep ===")
+print("min_area | Detections")
+print("-" * 30)
+
+min_areas = [10, 20, 30, 50, 100, 200]
+
+for ma in min_areas:
+    p = detect(frame, boundary_threshold=DETECT_PARAMS["boundary_threshold"], min_area=ma)
+    print(f"  {ma:6d}  |    {len(p):4d}")
+
+    fig, ax = plt.subplots(figsize=(16, 4))
+    ax.imshow(frame, cmap="gray", vmin=0, vmax=frame.max() * 0.3)
+    if len(p) > 0:
+        ax.scatter(p["x"], p["y"], s=50, facecolors="none",
+                   edgecolors="lime", linewidths=1)
+    ax.set_title(f"min_area={ma} -> n={len(p)}")
+    ax.axis("off")
+    plt.tight_layout()
+    plt.savefig(OUT_DIR / f"sweep_area{ma}.png", dpi=100)
+    plt.close()
+
+print(f"\nSaved min_area sweep images to {OUT_DIR}")
 
 # %%
 # =============================================================================
@@ -184,6 +222,8 @@ print("=== Parameter Tuning Complete ===")
 print("=" * 50)
 print(f"\nOutput directory: {OUT_DIR}")
 print("\nRecommended next steps:")
-print("1. Review the parameter sweep images")
-print("2. Update DETECT_PARAMS in config.py with optimal values")
-print("3. Run 03_analysis.py for full pipeline")
+print("1. Review the threshold sweep images")
+print("2. Update BOUNDARY_THRESHOLD in config.py")
+print("3. Review the min_area sweep images")
+print("4. Update MIN_AREA in config.py if needed")
+print("5. Run 03_analysis.py for full pipeline")
