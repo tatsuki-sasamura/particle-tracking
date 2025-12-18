@@ -185,11 +185,7 @@ def process_single_file(file_path: Path) -> dict:
                 )
                 velocities = add_time_column(velocities, dt=frame_interval)
 
-                # Add metadata columns
-                filtered["source_file"] = file_stem
-                velocities["source_file"] = file_stem
-
-                # Export CSVs
+                # Export in MATLAB-compatible format
                 export_results(
                     filtered,
                     velocities,
@@ -300,6 +296,44 @@ if __name__ == "__main__":
 
     if GENERATE_IMAGES:
         print(f"\nImages saved to: {OUTPUT_DIR / '04_batch_processing'}")
+
+    # %%
+    # =============================================================================
+    # Combine All Tracking Data
+    # =============================================================================
+
+    print(f"\n=== Combining All Tracking Data ===")
+
+    tracking_dir = OUTPUT_DIR / "trajectories"
+    tracking_files = sorted(tracking_dir.glob("*_tracking.csv"))
+
+    if len(tracking_files) > 0:
+        all_tracking = []
+        max_id = 0
+
+        for tracking_file in tracking_files:
+            df = pd.read_csv(tracking_file)
+            if len(df) == 0:
+                continue
+
+            # Offset particle IDs to make them unique across files
+            df["ID"] = df["ID"] + max_id
+            max_id = df["ID"].max() + 1
+
+            # Add source file column
+            df["source_file"] = tracking_file.stem.replace("_tracking", "")
+            all_tracking.append(df)
+
+        if len(all_tracking) > 0:
+            data_combine = pd.concat(all_tracking, ignore_index=True)
+            combine_path = OUTPUT_DIR / "summary" / "data_combine.csv"
+            data_combine.to_csv(combine_path, index=False)
+            print(f"Combined {len(all_tracking)} files -> {len(data_combine)} rows, {data_combine['ID'].nunique()} trajectories")
+            print(f"Saved: {combine_path}")
+        else:
+            print("No tracking data to combine")
+    else:
+        print("No tracking files found")
 
     # %%
     print(f"\n=== Batch Processing Complete ===")

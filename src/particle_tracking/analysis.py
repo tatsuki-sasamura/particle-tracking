@@ -160,7 +160,18 @@ def export_results(
     output_dir: str | Path,
     prefix: str = "",
 ) -> dict[str, Path]:
-    """Export trajectories and velocities to CSV files.
+    """Export tracking data to CSV in DefocusTracker-compatible format.
+
+    Output format matches the MATLAB DefocusTracker .mat output:
+    - fr: frame number
+    - X: x position (um)
+    - Y: y position (um)
+    - Z: z position (0 for 2D)
+    - DX: x velocity (um/s)
+    - DY: y velocity (um/s)
+    - DZ: z velocity (0 for 2D)
+    - ID: particle ID
+    - Cm: confidence metric (1.0 for all detections)
 
     Parameters
     ----------
@@ -185,15 +196,24 @@ def export_results(
 
     paths = {}
 
-    # Export trajectories
-    traj_path = output_dir / f"{prefix}trajectories.csv"
-    trajectories.to_csv(traj_path, index=False)
-    paths["trajectories"] = traj_path
+    # Create combined output in MATLAB-compatible format
+    if not velocities.empty:
+        output_df = pd.DataFrame({
+            "fr": velocities["frame"],
+            "X": velocities["x_um"],
+            "Y": velocities["y_um"],
+            "Z": 0.0,
+            "DX": velocities["vx"],
+            "DY": velocities["vy"],
+            "DZ": 0.0,
+            "ID": velocities["particle"],
+            "Cm": 1.0,
+        })
 
-    # Export velocities
-    vel_path = output_dir / f"{prefix}velocities.csv"
-    velocities.to_csv(vel_path, index=False)
-    paths["velocities"] = vel_path
+        # Export main tracking data
+        tracking_path = output_dir / f"{prefix}tracking.csv"
+        output_df.to_csv(tracking_path, index=False)
+        paths["tracking"] = tracking_path
 
     return paths
 

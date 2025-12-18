@@ -299,11 +299,7 @@ if GENERATE_VIDEO_FRAMES:
 
 print(f"\n=== Exporting Results ===")
 
-# Add metadata columns
-filtered["source_file"] = file_stem
-velocities["source_file"] = file_stem
-
-# Export trajectories and velocities
+# Export in MATLAB-compatible format
 paths = export_results(
     filtered,
     velocities,
