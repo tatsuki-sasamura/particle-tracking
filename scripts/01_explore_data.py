@@ -10,7 +10,7 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 sys.path.insert(0, str(Path(__file__).parent))
 
-from particle_tracking import load_nd2_file, preprocess_frame
+from particle_tracking import load_nd2_file
 
 from config import DATA_DIR, get_output_dir
 
@@ -47,8 +47,8 @@ print(f"Max: {frames.max()}")
 print(f"Mean: {frames.mean():.1f}")
 
 # %%
-# Visualize sample frames (raw)
-print("\n=== Generating Raw Frame Images ===")
+# Visualize sample frames
+print("\n=== Generating Frame Images ===")
 
 for frame_idx in SAMPLE_FRAMES:
     if frame_idx >= len(frames):
@@ -57,33 +57,11 @@ for frame_idx in SAMPLE_FRAMES:
 
     fig, ax = plt.subplots(figsize=(16, 4))
     ax.imshow(frames[frame_idx], cmap="gray", vmin=0, vmax=frames.max() * 0.5)
-    ax.set_title(f"Frame {frame_idx} (raw)")
+    ax.set_title(f"Frame {frame_idx}")
     ax.axis("off")
 
     plt.tight_layout()
-    output_path = OUT_DIR / f"frame_{frame_idx:03d}_raw.png"
-    plt.savefig(output_path, dpi=150)
-    plt.show()
-    print(f"Saved: {output_path}")
-
-# %%
-# Visualize sample frames (preprocessed)
-print("\n=== Generating Preprocessed Frame Images ===")
-
-for frame_idx in SAMPLE_FRAMES:
-    if frame_idx >= len(frames):
-        print(f"Skipping frame {frame_idx} (out of range)")
-        continue
-
-    processed = preprocess_frame(frames[frame_idx])
-
-    fig, ax = plt.subplots(figsize=(16, 4))
-    ax.imshow(processed, cmap="gray")
-    ax.set_title(f"Frame {frame_idx} (preprocessed)")
-    ax.axis("off")
-
-    plt.tight_layout()
-    output_path = OUT_DIR / f"frame_{frame_idx:03d}_preprocessed.png"
+    output_path = OUT_DIR / f"frame_{frame_idx:03d}.png"
     plt.savefig(output_path, dpi=150)
     plt.show()
     print(f"Saved: {output_path}")
@@ -92,21 +70,11 @@ for frame_idx in SAMPLE_FRAMES:
 # Intensity histogram
 print("\n=== Intensity Histogram ===")
 
-fig, axes = plt.subplots(1, 2, figsize=(12, 4))
-
-# Raw histogram
-axes[0].hist(frames[0].flatten(), bins=100, log=True)
-axes[0].set_xlabel("Intensity")
-axes[0].set_ylabel("Count (log)")
-axes[0].set_title("Raw Frame Intensity Distribution")
-
-# Preprocessed histogram
-processed = preprocess_frame(frames[0])
-axes[1].hist(processed.flatten(), bins=100, log=True)
-axes[1].set_xlabel("Intensity")
-axes[1].set_ylabel("Count (log)")
-axes[1].set_title("Preprocessed Frame Intensity Distribution")
-
+fig, ax = plt.subplots(figsize=(8, 5))
+ax.hist(frames[0].flatten(), bins=100, log=True)
+ax.set_xlabel("Intensity")
+ax.set_ylabel("Count (log)")
+ax.set_title("Frame Intensity Distribution")
 plt.tight_layout()
 output_path = OUT_DIR / "intensity_histogram.png"
 plt.savefig(output_path, dpi=150)

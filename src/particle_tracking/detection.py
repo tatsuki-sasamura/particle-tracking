@@ -8,8 +8,6 @@ from scipy import ndimage
 from skimage import measure
 from tqdm import tqdm
 
-from .preprocessing import preprocess_frame
-
 
 # %%
 # =============================================================================
@@ -23,7 +21,6 @@ def _detect_threshold(
     threshold_percentile: float = 99.0,
     min_area: int = 10,
     max_area: int = 10000,
-    preprocess: bool = True,
 ) -> pd.DataFrame:
     """Detect particles using intensity threshold and connected components.
 
@@ -42,16 +39,12 @@ def _detect_threshold(
         Minimum particle area in pixels (default: 10).
     max_area : int, optional
         Maximum particle area in pixels (default: 10000).
-    preprocess : bool, optional
-        Whether to preprocess the frame (default: True).
 
     Returns
     -------
     pd.DataFrame
         DataFrame with columns: x, y, mass, area, bbox, etc.
     """
-    if preprocess:
-        frame = preprocess_frame(frame)
 
     # Determine threshold
     if threshold is None:
@@ -108,7 +101,6 @@ def _batch_threshold(
     threshold_percentile: float = 99.0,
     min_area: int = 10,
     max_area: int = 10000,
-    preprocess: bool = True,
     show_progress: bool = True,
 ) -> pd.DataFrame:
     """Detect particles in all frames using threshold method.
@@ -125,8 +117,6 @@ def _batch_threshold(
         Minimum particle area in pixels (default: 10).
     max_area : int, optional
         Maximum particle area in pixels (default: 10000).
-    preprocess : bool, optional
-        Whether to preprocess each frame (default: True).
     show_progress : bool, optional
         Whether to show progress bar (default: True).
 
@@ -148,7 +138,6 @@ def _batch_threshold(
             threshold_percentile=threshold_percentile,
             min_area=min_area,
             max_area=max_area,
-            preprocess=preprocess,
         )
 
         if len(features) > 0:
@@ -171,7 +160,6 @@ def _detect_trackpy(
     diameter: int = 11,
     minmass: float | None = None,
     separation: float | None = None,
-    preprocess: bool = True,
     **kwargs,
 ) -> pd.DataFrame:
     """Detect particles in a single frame.
@@ -186,8 +174,6 @@ def _detect_trackpy(
         Minimum integrated brightness for a particle.
     separation : float, optional
         Minimum separation between particles (default: diameter).
-    preprocess : bool, optional
-        Whether to preprocess the frame (default: True).
     **kwargs
         Additional arguments passed to trackpy.locate.
 
@@ -196,9 +182,6 @@ def _detect_trackpy(
     pd.DataFrame
         DataFrame with columns: x, y, mass, size, ecc, signal, raw_mass, etc.
     """
-    if preprocess:
-        frame = preprocess_frame(frame)
-
     # Ensure diameter is odd
     if diameter % 2 == 0:
         diameter += 1
@@ -225,7 +208,6 @@ def _batch_trackpy(
     diameter: int = 11,
     minmass: float | None = None,
     separation: float | None = None,
-    preprocess: bool = True,
     show_progress: bool = True,
     **kwargs,
 ) -> pd.DataFrame:
@@ -241,8 +223,6 @@ def _batch_trackpy(
         Minimum integrated brightness for a particle.
     separation : float, optional
         Minimum separation between particles.
-    preprocess : bool, optional
-        Whether to preprocess each frame (default: True).
     show_progress : bool, optional
         Whether to show progress bar (default: True).
     **kwargs
@@ -262,8 +242,6 @@ def _batch_trackpy(
 
     for i in iterator:
         frame = frames[i]
-        if preprocess:
-            frame = preprocess_frame(frame)
 
         features = tp.locate(
             frame,
@@ -304,8 +282,8 @@ def detect(
         Default: "threshold".
     **kwargs
         Method-specific parameters:
-        - threshold: threshold_percentile, min_area, max_area, preprocess
-        - trackpy: diameter, minmass, separation, preprocess
+        - threshold: threshold_percentile, min_area, max_area
+        - trackpy: diameter, minmass, separation
 
     Returns
     -------
@@ -339,8 +317,8 @@ def batch_detect(
         Whether to show progress bar (default: True).
     **kwargs
         Method-specific parameters:
-        - threshold: threshold_percentile, min_area, max_area, preprocess
-        - trackpy: diameter, minmass, separation, preprocess
+        - threshold: threshold_percentile, min_area, max_area
+        - trackpy: diameter, minmass, separation
 
     Returns
     -------

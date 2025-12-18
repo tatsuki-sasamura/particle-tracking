@@ -31,7 +31,6 @@ from particle_tracking import (
     filter_trajectories,
     link_trajectories,
     load_nd2_file,
-    preprocess_frame,
 )
 
 from config import (
@@ -160,9 +159,8 @@ if VIS_FRAMES:
 
         fig, ax = plt.subplots(figsize=(20, 4))
 
-        # Show preprocessed frame
-        proc = preprocess_frame(frames[t])
-        ax.imshow(proc, cmap="gray")
+        # Show frame
+        ax.imshow(frames[t], cmap="gray", vmin=0, vmax=frames[t].max() * 0.3)
 
         # Get detections at this frame
         frame_particles = all_particles[all_particles["frame"] == t]

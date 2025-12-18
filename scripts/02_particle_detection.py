@@ -16,7 +16,7 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 sys.path.insert(0, str(Path(__file__).parent))
 
-from particle_tracking import detect, load_nd2_file, preprocess_frame
+from particle_tracking import detect, load_nd2_file
 
 from config import (
     DATA_DIR,
@@ -47,39 +47,26 @@ print(f"Loading {SAMPLE_FILE}...")
 frames, metadata = load_nd2_file(SAMPLE_FILE)
 print(f"Loaded {len(frames)} frames")
 
-raw = frames[FRAME_INDEX]
-processed = preprocess_frame(raw)
+frame = frames[FRAME_INDEX]
 
 print(f"\nFrame {FRAME_INDEX} statistics:")
-print(f"  Raw: min={raw.min()}, max={raw.max()}, mean={raw.mean():.1f}")
-print(f"  Processed: min={processed.min():.2f}, max={processed.max():.2f}")
+print(f"  min={frame.min()}, max={frame.max()}, mean={frame.mean():.1f}")
 
 # %%
 # =============================================================================
-# Visualize Raw vs Processed (separate images)
+# Visualize Frame
 # =============================================================================
 
-print("\n=== Raw vs Processed ===")
+print("\n=== Frame Visualization ===")
 
-# Raw
 fig, ax = plt.subplots(figsize=(16, 4))
-ax.imshow(raw, cmap="gray", vmin=0, vmax=raw.max() * 0.3)
-ax.set_title(f"Frame {FRAME_INDEX} (raw)")
+ax.imshow(frame, cmap="gray", vmin=0, vmax=frame.max() * 0.3)
+ax.set_title(f"Frame {FRAME_INDEX}")
 ax.axis("off")
 plt.tight_layout()
-plt.savefig(OUT_DIR / "frame_raw.png", dpi=150)
+plt.savefig(OUT_DIR / "frame.png", dpi=150)
 plt.show()
-print(f"Saved: {OUT_DIR / 'frame_raw.png'}")
-
-# Preprocessed
-fig, ax = plt.subplots(figsize=(16, 4))
-ax.imshow(processed, cmap="gray")
-ax.set_title(f"Frame {FRAME_INDEX} (preprocessed)")
-ax.axis("off")
-plt.tight_layout()
-plt.savefig(OUT_DIR / "frame_preprocessed.png", dpi=150)
-plt.show()
-print(f"Saved: {OUT_DIR / 'frame_preprocessed.png'}")
+print(f"Saved: {OUT_DIR / 'frame.png'}")
 
 # %%
 # =============================================================================
@@ -109,8 +96,8 @@ if METHOD == "threshold":
     print("\n=== Threshold Method: Visualization ===")
 
     pct = THRESHOLD_PARAMS["threshold_percentile"]
-    threshold = np.percentile(processed, pct)
-    binary = processed > threshold
+    threshold = np.percentile(frame, pct)
+    binary = frame > threshold
 
     # Binary mask
     fig, ax = plt.subplots(figsize=(16, 4))
@@ -123,9 +110,9 @@ if METHOD == "threshold":
     print(f"Saved: {OUT_DIR / 'threshold_binary.png'}")
 
     # Detections
-    particles = detect(processed, method="threshold", preprocess=False, **THRESHOLD_PARAMS)
+    particles = detect(frame, method="threshold", **THRESHOLD_PARAMS)
     fig, ax = plt.subplots(figsize=(16, 4))
-    ax.imshow(processed, cmap="gray")
+    ax.imshow(frame, cmap="gray", vmin=0, vmax=frame.max() * 0.3)
     if len(particles) > 0:
         ax.scatter(particles["x"], particles["y"],
                    s=100, facecolors="none", edgecolors="lime", linewidths=1.5)
@@ -146,14 +133,14 @@ if METHOD == "threshold":
 
     for pct in percentiles:
         for ma in min_areas:
-            p = detect(processed, method="threshold",
+            p = detect(frame, method="threshold",
                        threshold_percentile=pct, min_area=ma,
-                       max_area=THRESHOLD_PARAMS["max_area"], preprocess=False)
+                       max_area=THRESHOLD_PARAMS["max_area"])
             print(f"  {pct:6.1f}   |   {ma:4d}   |    {len(p):4d}")
 
             # Save each combination as separate image
             fig, ax = plt.subplots(figsize=(16, 4))
-            ax.imshow(processed, cmap="gray")
+            ax.imshow(frame, cmap="gray", vmin=0, vmax=frame.max() * 0.3)
             if len(p) > 0:
                 ax.scatter(p["x"], p["y"], s=50, facecolors="none",
                            edgecolors="lime", linewidths=1)
@@ -173,10 +160,10 @@ if METHOD == "threshold":
 if METHOD == "trackpy":
     print("\n=== Trackpy Method: Current Parameters ===")
 
-    particles = detect(processed, method="trackpy", preprocess=False, **TRACKPY_PARAMS)
+    particles = detect(frame, method="trackpy", **TRACKPY_PARAMS)
 
     fig, ax = plt.subplots(figsize=(16, 4))
-    ax.imshow(processed, cmap="gray")
+    ax.imshow(frame, cmap="gray", vmin=0, vmax=frame.max() * 0.3)
     if len(particles) > 0:
         ax.scatter(particles["x"], particles["y"],
                    s=100, facecolors="none", edgecolors="red", linewidths=1.5)
@@ -194,12 +181,11 @@ if METHOD == "trackpy":
     minmass_fixed = TRACKPY_PARAMS["minmass"]
 
     for d in diameters:
-        p = detect(processed, method="trackpy", diameter=d,
-                   minmass=minmass_fixed, preprocess=False)
+        p = detect(frame, method="trackpy", diameter=d, minmass=minmass_fixed)
         print(f"  diameter={d:2d}: {len(p):4d} detections")
 
         fig, ax = plt.subplots(figsize=(16, 4))
-        ax.imshow(processed, cmap="gray")
+        ax.imshow(frame, cmap="gray", vmin=0, vmax=frame.max() * 0.3)
         if len(p) > 0:
             ax.scatter(p["x"], p["y"], s=50, facecolors="none",
                        edgecolors="red", linewidths=1)
@@ -215,12 +201,11 @@ if METHOD == "trackpy":
     diameter_fixed = TRACKPY_PARAMS["diameter"]
 
     for mm in minmasses:
-        p = detect(processed, method="trackpy", diameter=diameter_fixed,
-                   minmass=mm, preprocess=False)
+        p = detect(frame, method="trackpy", diameter=diameter_fixed, minmass=mm)
         print(f"  minmass={mm:5d}: {len(p):4d} detections")
 
         fig, ax = plt.subplots(figsize=(16, 4))
-        ax.imshow(processed, cmap="gray")
+        ax.imshow(frame, cmap="gray", vmin=0, vmax=frame.max() * 0.3)
         if len(p) > 0:
             ax.scatter(p["x"], p["y"], s=50, facecolors="none",
                        edgecolors="red", linewidths=1)
@@ -240,10 +225,10 @@ if METHOD == "trackpy":
 print("\n=== Method Comparison ===")
 
 # Threshold
-p_threshold = detect(processed, method="threshold", preprocess=False, **THRESHOLD_PARAMS)
+p_threshold = detect(frame, method="threshold", **THRESHOLD_PARAMS)
 
 fig, ax = plt.subplots(figsize=(16, 4))
-ax.imshow(processed, cmap="gray")
+ax.imshow(frame, cmap="gray", vmin=0, vmax=frame.max() * 0.3)
 if len(p_threshold) > 0:
     ax.scatter(p_threshold["x"], p_threshold["y"],
                s=100, facecolors="none", edgecolors="lime", linewidths=1.5)
@@ -255,10 +240,10 @@ plt.show()
 print(f"Threshold: {len(p_threshold)} detections")
 
 # Trackpy
-p_trackpy = detect(processed, method="trackpy", preprocess=False, **TRACKPY_PARAMS)
+p_trackpy = detect(frame, method="trackpy", **TRACKPY_PARAMS)
 
 fig, ax = plt.subplots(figsize=(16, 4))
-ax.imshow(processed, cmap="gray")
+ax.imshow(frame, cmap="gray", vmin=0, vmax=frame.max() * 0.3)
 if len(p_trackpy) > 0:
     ax.scatter(p_trackpy["x"], p_trackpy["y"],
                s=100, facecolors="none", edgecolors="red", linewidths=1.5)
@@ -281,13 +266,12 @@ for f_idx in TEST_FRAMES:
         print(f"Skipping frame {f_idx} (out of range)")
         continue
 
-    frame = frames[f_idx]
-    proc = preprocess_frame(frame)
+    f = frames[f_idx]
 
     # Threshold
-    p_t = detect(proc, method="threshold", preprocess=False, **THRESHOLD_PARAMS)
+    p_t = detect(f, method="threshold", **THRESHOLD_PARAMS)
     fig, ax = plt.subplots(figsize=(16, 4))
-    ax.imshow(proc, cmap="gray")
+    ax.imshow(f, cmap="gray", vmin=0, vmax=f.max() * 0.3)
     if len(p_t) > 0:
         ax.scatter(p_t["x"], p_t["y"], s=50, facecolors="none",
                    edgecolors="lime", linewidths=1)
@@ -298,9 +282,9 @@ for f_idx in TEST_FRAMES:
     plt.close()
 
     # Trackpy
-    p_k = detect(proc, method="trackpy", preprocess=False, **TRACKPY_PARAMS)
+    p_k = detect(f, method="trackpy", **TRACKPY_PARAMS)
     fig, ax = plt.subplots(figsize=(16, 4))
-    ax.imshow(proc, cmap="gray")
+    ax.imshow(f, cmap="gray", vmin=0, vmax=f.max() * 0.3)
     if len(p_k) > 0:
         ax.scatter(p_k["x"], p_k["y"], s=50, facecolors="none",
                    edgecolors="red", linewidths=1)
