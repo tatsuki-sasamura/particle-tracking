@@ -142,8 +142,7 @@ def compute_ensemble_stats(
 
     stats = {
         "source_file": source_file or "unknown",
-        "n_particles": velocities["particle"].nunique() if "particle" in velocities else 0,
-        "n_detections": len(velocities),
+        "n_trajectories": velocities["particle"].nunique() if "particle" in velocities else 0,
         "mean_speed": valid_speeds.mean() if len(valid_speeds) > 0 else np.nan,
         "std_speed": valid_speeds.std() if len(valid_speeds) > 0 else np.nan,
         "median_speed": valid_speeds.median() if len(valid_speeds) > 0 else np.nan,
