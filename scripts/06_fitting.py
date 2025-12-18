@@ -28,6 +28,7 @@ from config import OUTPUT_DIR
 # =============================================================================
 
 INPUT_FILE = OUTPUT_DIR / "summary" / "data_combine_filter.csv"
+PLOT_DIR = OUTPUT_DIR / "06_fitting"
 L = 375.0  # Channel width (um)
 
 # Binning parameters
@@ -142,9 +143,10 @@ ax.set_ylabel('Mean DY (um/s)')
 ax.set_title('Mean DY vs Y (for y0 estimation)')
 ax.legend()
 plt.tight_layout()
-plt.savefig(OUTPUT_DIR / "summary" / "fitting_y0_estimate.png", dpi=150)
+PLOT_DIR.mkdir(parents=True, exist_ok=True)
+plt.savefig(PLOT_DIR / "fitting_y0_estimate.png", dpi=150)
 plt.show()
-print(f"Saved: {OUTPUT_DIR / 'summary' / 'fitting_y0_estimate.png'}")
+print(f"Saved: {PLOT_DIR / 'fitting_y0_estimate.png'}")
 
 # %%
 # =============================================================================
@@ -258,9 +260,9 @@ ax.set_xlabel('X (um)')
 ax.set_ylabel('A (um/s)')
 ax.set_title(f'Fitted amplitude A per X bin (y0 = {y0_fit:.1f} um)')
 plt.tight_layout()
-plt.savefig(OUTPUT_DIR / "summary" / "fitting_Ax.png", dpi=150)
+plt.savefig(PLOT_DIR / "fitting_Ax.png", dpi=150)
 plt.show()
-print(f"Saved: {OUTPUT_DIR / 'summary' / 'fitting_Ax.png'}")
+print(f"Saved: {PLOT_DIR / 'fitting_Ax.png'}")
 
 # Plot 2: E_ac(x) per bin
 fig, ax = plt.subplots(figsize=(10, 5))
@@ -274,9 +276,9 @@ ax.set_ylabel('E_ac (J/m³)')
 ax.set_title(f'Acoustic Energy Density E_ac per X bin')
 ax.legend()
 plt.tight_layout()
-plt.savefig(OUTPUT_DIR / "summary" / "fitting_Eac.png", dpi=150)
+plt.savefig(PLOT_DIR / "fitting_Eac.png", dpi=150)
 plt.show()
-print(f"Saved: {OUTPUT_DIR / 'summary' / 'fitting_Eac.png'}")
+print(f"Saved: {PLOT_DIR / 'fitting_Eac.png'}")
 
 # Plot 3: p0(x) per bin
 fig, ax = plt.subplots(figsize=(10, 5))
@@ -290,9 +292,9 @@ ax.set_ylabel('p0 (kPa)')
 ax.set_title('Pressure Amplitude (0-to-peak) per X bin')
 ax.legend()
 plt.tight_layout()
-plt.savefig(OUTPUT_DIR / "summary" / "fitting_p0.png", dpi=150)
+plt.savefig(PLOT_DIR / "fitting_p0.png", dpi=150)
 plt.show()
-print(f"Saved: {OUTPUT_DIR / 'summary' / 'fitting_p0.png'}")
+print(f"Saved: {PLOT_DIR / 'fitting_p0.png'}")
 
 # Plot 4: Y vs DY with fitted curves for different X bins
 fig, ax = plt.subplots(figsize=(10, 6))
@@ -318,9 +320,9 @@ ax.set_ylabel('DY (um/s)')
 ax.set_title('Y vs DY with Fitted Curves (colored by X)')
 ax.legend()
 plt.tight_layout()
-plt.savefig(OUTPUT_DIR / "summary" / "fitting_Y_vs_DY.png", dpi=150)
+plt.savefig(PLOT_DIR / "fitting_Y_vs_DY.png", dpi=150)
 plt.show()
-print(f"Saved: {OUTPUT_DIR / 'summary' / 'fitting_Y_vs_DY.png'}")
+print(f"Saved: {PLOT_DIR / 'fitting_Y_vs_DY.png'}")
 
 # Plot 3: Fitted vs Observed DY (2D heatmaps side by side)
 fig, axes = plt.subplots(1, 2, figsize=(14, 6))
@@ -366,9 +368,9 @@ ax.set_title('Fitted DY')
 plt.colorbar(im, ax=ax, label='DY (um/s)')
 
 plt.tight_layout()
-plt.savefig(OUTPUT_DIR / "summary" / "fitting_comparison.png", dpi=150)
+plt.savefig(PLOT_DIR / "fitting_comparison.png", dpi=150)
 plt.show()
-print(f"Saved: {OUTPUT_DIR / 'summary' / 'fitting_comparison.png'}")
+print(f"Saved: {PLOT_DIR / 'fitting_comparison.png'}")
 
 # %%
 # =============================================================================
@@ -407,5 +409,6 @@ print(f"  Max p0 at X = {valid_E.loc[valid_E['p0'].idxmax(), 'x']:.0f} um")
 print(f"{'='*50}")
 
 # Save A(x) and E_ac results to CSV
-A_df.to_csv(OUTPUT_DIR / "summary" / "fitting_A_per_x.csv", index=False)
-print(f"\nSaved: {OUTPUT_DIR / 'summary' / 'fitting_A_per_x.csv'}")
+PLOT_DIR.mkdir(parents=True, exist_ok=True)
+A_df.to_csv(PLOT_DIR / "fitting_A_per_x.csv", index=False)
+print(f"\nSaved: {PLOT_DIR / 'fitting_A_per_x.csv'}")

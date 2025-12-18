@@ -24,6 +24,7 @@ from config import OUTPUT_DIR
 
 INPUT_FILE = OUTPUT_DIR / "summary" / "data_combine.csv"
 OUTPUT_FILE = OUTPUT_DIR / "summary" / "data_combine_filter.csv"
+PLOT_DIR = OUTPUT_DIR / "05_data_filter"
 
 # Filter parameters
 MIN_TRACK_LENGTH = 30  # Minimum number of points per trajectory
@@ -60,7 +61,8 @@ ax.axhline(y=mean_dy_per_frame.mean(), color="r", linestyle="--", label=f"Mean: 
 ax.legend()
 plt.tight_layout()
 
-plot_path = OUTPUT_DIR / "summary" / "diagnostic_velocity_vs_frame.png"
+PLOT_DIR.mkdir(parents=True, exist_ok=True)
+plot_path = PLOT_DIR / "diagnostic_velocity_vs_frame.png"
 plt.savefig(plot_path, dpi=150)
 plt.show()
 print(f"Saved: {plot_path}")
@@ -80,7 +82,7 @@ ax.set_title("Y displacement per trajectory (to tune threshold)")
 ax.legend()
 plt.tight_layout()
 
-plot_path = OUTPUT_DIR / "summary" / "diagnostic_y_displacement.png"
+plot_path = PLOT_DIR / "diagnostic_y_displacement.png"
 plt.savefig(plot_path, dpi=150)
 plt.show()
 print(f"Saved: {plot_path}")
@@ -155,7 +157,7 @@ ax.set_title(f"Filtered Positions (n={len(data_filtered)})")
 ax.set_aspect("equal")
 plt.tight_layout()
 
-plot_path = OUTPUT_DIR / "summary" / "filter_XY.png"
+plot_path = PLOT_DIR / "filter_XY.png"
 plt.savefig(plot_path, dpi=150)
 plt.show()
 print(f"Saved: {plot_path}")
@@ -172,7 +174,7 @@ ax.set_ylabel("DY (um/s)")
 ax.set_title(f"Y vs DY (n={len(data_filtered)})")
 plt.tight_layout()
 
-plot_path = OUTPUT_DIR / "summary" / "filter_Y_DY.png"
+plot_path = PLOT_DIR / "filter_Y_DY.png"
 plt.savefig(plot_path, dpi=150)
 plt.show()
 print(f"Saved: {plot_path}")
@@ -207,7 +209,7 @@ ax.set_title(f"Sample distribution ({n_x_bins}x{n_y_bins} bins, gray=no data)")
 plt.colorbar(im, ax=ax, label="Count (capped at 20)", extend="both")
 plt.tight_layout()
 
-plot_path = OUTPUT_DIR / "summary" / "sample_distribution_xy.png"
+plot_path = PLOT_DIR / "sample_distribution_xy.png"
 plt.savefig(plot_path, dpi=150)
 plt.show()
 print(f"Saved: {plot_path}")
